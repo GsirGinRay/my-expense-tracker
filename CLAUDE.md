@@ -93,6 +93,17 @@ npm start              # 或 npm run dev (使用 node --watch)
 - **XSS 防護**：`ui.js` 渲染清單時所有使用者輸入（category、note、merchant）都手動 escape `&<>`。新增會顯示使用者輸入的欄位時必須同樣處理（或改用 `textContent`）。
 - **CSV 必須含 BOM**：`csv.js` 開頭的 `\uFEFF` 是為了 Excel 開中文不亂碼，不要移除。
 - **Service Worker 排除 /api/**：`service-worker.js` 已在 fetch handler 開頭 return `/api/*`，新增任何後端路徑時要確認沒被誤快取。
+- **`[hidden]` CSS 強制 override**：`styles.css` 有 `[hidden] { display: none !important; }`，因為 `.auth-screen` 的 `display: flex` 會覆蓋 HTML `hidden` 屬性（造成登入後登入畫面不消失）。**不要移除這個規則**。
+- **DOM ID 是 main.js 與 index.html 的契約**：`main.js` 啟動時做一次性 `document.getElementById` 把所有需要的元素抓到 `el` 物件。改 `index.html` 的 ID 必須同步改 `main.js` 的 `el = { ... }`。
+
+## PWA 維護
+
+- **改前端模組（新增/刪除/改名 `js/*.js`）**：必須同步更新 `service-worker.js` 的 `PRECACHE_URLS` 陣列，並 bump `CACHE_VERSION`（例如 `v10` → `v11`），否則：
+  - 新模組沒進 precache，離線時會 404
+  - 舊版瀏覽器不會抓新版本
+- **改 CSS / index.html / 其他靜態資源**：bump `CACHE_VERSION`，不然舊客戶端會看到舊版（`network-first` 策略需要前端有網才會更新）。
+- **改 icons**：用 `python icons/generate_icons.py` 重新產出（基底是漸層藍方塊 + 白色 `$`），不要手動編輯 PNG。`PRECACHE_URLS` 也要同步。
+- **`window.__deferredInstallPrompt`**：`index.html` `<head>` 裡那段 inline script 是為了在 module script defer 之前就攔截 `beforeinstallprompt`，否則安裝按鈕會抓不到 prompt。不要移到 main.js。
 
 ## 機密資訊
 
