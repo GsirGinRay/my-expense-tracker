@@ -19,6 +19,15 @@
   <meta name="apple-mobile-web-app-title" content="我的記帳" />
 
   <link rel="stylesheet" href="styles.css" />
+  <script>
+    // Capture beforeinstallprompt as early as possible — module scripts defer,
+    // so without this, Chrome may fire the event before main.js attaches.
+    window.__deferredInstallPrompt = null;
+    window.addEventListener('beforeinstallprompt', function (e) {
+      e.preventDefault();
+      window.__deferredInstallPrompt = e;
+    });
+  </script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
   <script type="module" src="js/main.js" defer></script>
 </head>
@@ -29,9 +38,31 @@
     <h1>💰 我的記帳</h1>
     <p class="subtitle">簡單、私密的個人記帳網站</p>
     <button type="button" id="install-btn" class="install-btn">
-      📲 安裝為 App
+      <span class="install-btn-icon" aria-hidden="true">📲</span>
+      <span class="install-btn-text">安裝為 App</span>
     </button>
   </header>
+
+  <dialog id="install-help" class="install-help">
+    <div class="install-help-inner">
+      <h3>📲 加到主畫面</h3>
+      <section data-platform="android">
+        <h4>Android Chrome</h4>
+        <ol>
+          <li>點右上角 <strong>⋮</strong> 選單</li>
+          <li>選「<strong>安裝應用程式</strong>」或「新增到主畫面」</li>
+        </ol>
+      </section>
+      <section data-platform="ios">
+        <h4>iPhone Safari</h4>
+        <ol>
+          <li>點底部 <strong>分享</strong> 鈕（方框＋向上箭頭）</li>
+          <li>下拉選「<strong>加入主畫面</strong>」</li>
+        </ol>
+      </section>
+      <button type="button" id="install-help-close" class="btn btn-primary">知道了</button>
+    </div>
+  </dialog>
 
   <main class="container">
     <section class="summary" aria-label="本月摘要">

@@ -213,7 +213,6 @@ function setupInstallPrompt() {
   const installBtn = document.getElementById('install-btn');
   if (!installBtn) return;
 
-  // Already running as installed PWA → hide the button.
   const isStandalone =
     window.matchMedia('(display-mode: standalone)').matches ||
     window.navigator.standalone === true;
@@ -221,41 +220,70 @@ function setupInstallPrompt() {
     installBtn.hidden = true;
     return;
   }
-  // Otherwise the button stays visible (default in HTML). Chrome only fires
-  // `beforeinstallprompt` once and won't re-fire after dismissal — hiding the
-  // button in that case strands the user with no install affordance.
 
-  let deferredPrompt = null;
+  // The HTML head pre-attaches a beforeinstallprompt listener that stashes the
+  // event on window.__deferredInstallPrompt. Pick it up here in case it fired
+  // before this module ran.
+  let deferredPrompt = window.__deferredInstallPrompt || null;
   const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
 
   window.addEventListener('beforeinstallprompt', (event) => {
     event.preventDefault();
     deferredPrompt = event;
+    window.__deferredInstallPrompt = event;
   });
+
+  const helpDialog = document.getElementById('install-help');
+  const helpClose = document.getElementById('install-help-close');
+  if (helpClose && helpDialog) {
+    helpClose.addEventListener('click', () => helpDialog.close());
+  }
+
+  function showInstallHelp() {
+    if (!helpDialog) {
+      // Last resort if dialog markup is missing for some reason.
+      const msg = isIos
+        ? '請點 Safari 分享鈕 → 加入主畫面'
+        : '請從 Chrome 選單 ⋮ →「安裝應用程式」';
+      showToast(msg, 'info');
+      return;
+    }
+    // Highlight the relevant platform section
+    helpDialog.querySelectorAll('section[data-platform]').forEach((s) => {
+      const isMatch = isIos
+        ? s.dataset.platform === 'ios'
+        : s.dataset.platform === 'android';
+      s.style.order = isMatch ? '0' : '1';
+      s.style.opacity = isMatch ? '1' : '0.65';
+    });
+    if (typeof helpDialog.showModal === 'function') {
+      helpDialog.showModal();
+    } else {
+      helpDialog.setAttribute('open', '');
+    }
+  }
 
   installBtn.addEventListener('click', async () => {
     if (deferredPrompt) {
-      deferredPrompt.prompt();
-      const { outcome } = await deferredPrompt.userChoice;
-      // The deferred prompt can only be used once.
-      deferredPrompt = null;
-      if (outcome === 'accepted') {
-        // `appinstalled` will fire next and hide the button.
-        return;
+      try {
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        deferredPrompt = null;
+        window.__deferredInstallPrompt = null;
+        if (outcome === 'accepted') return;
+      } catch (err) {
+        console.warn('install prompt failed:', err);
       }
-      showToast('已取消。下次可從 Chrome 選單 ⋮ →「安裝應用程式」', 'info');
-      return;
+      // Dismissed or errored — still useful to surface manual instructions.
     }
-    if (isIos) {
-      showToast('請點瀏覽器分享鈕 → 加入主畫面', 'info');
-    } else {
-      showToast('請從 Chrome 選單 ⋮ →「安裝應用程式」', 'info');
-    }
+    showInstallHelp();
   });
 
   window.addEventListener('appinstalled', () => {
     installBtn.hidden = true;
     deferredPrompt = null;
+    window.__deferredInstallPrompt = null;
+    if (helpDialog && helpDialog.open) helpDialog.close();
     showToast('已安裝到主畫面 🎉', 'success');
   });
 }
