@@ -1,5 +1,9 @@
-import 'dotenv/config';
+import dotenv from 'dotenv';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
 import pg from 'pg';
+
+dotenv.config({ path: join(dirname(fileURLToPath(import.meta.url)), '.env') });
 
 const { Pool, types } = pg;
 

@@ -10,15 +10,36 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 需要先設定 `server/.env`（複製 `server/.env.example`），然後：
 
+**從專案根目錄（推薦，符合部署環境）**：
 ```bash
-cd server
-npm install            # 第一次
+npm install            # 第一次：自動透過 postinstall 連 server/ 也裝
 npm run migrate        # 第一次或 schema 改動時
 npm start              # 起 server，預設 http://localhost:3000
-# 或 npm run dev (使用 node --watch)
+```
+
+**或從 server/ 目錄（純 backend 開發時）**：
+```bash
+cd server
+npm install
+npm start              # 或 npm run dev (使用 node --watch)
 ```
 
 打開 http://localhost:3000/，server 同時 serve 前端靜態檔（API 走 `/api/*`），所以不會有 CORS 問題。
+
+## Zeabur 部署
+
+整個專案以**單一 Node service** 部署（不要再用純靜態 site，否則 `/api/*` 會 405）：
+
+1. Zeabur 後台 → Project → 新增 Service → Git → 連這個 repo
+2. Zeabur 會偵測根目錄 `package.json` 的 `start` script，自動 `npm install`（觸發 postinstall 安裝 server 依賴）→ `npm start`
+3. 環境變數（在 service 的 Variables 頁設定）：
+   - `DATABASE_URL`：用同一 project 的 PostgreSQL service「內網」連線字串（`postgresql://root:PASSWORD@postgresql.zeabur.internal:5432/zeabur`），不要用對外 IP
+   - `JWT_SECRET`：長隨機字串
+   - `PORT`：Zeabur 自動注入，不要手動設
+4. 第一次部署後執行 migration：在 Zeabur service 的 Console 跑 `npm run migrate`
+5. Domain 頁綁一個 `.zeabur.app` 子網域或自訂域名
+
+`postinstall` 會跑 `npm --prefix server install --omit=dev`，所以 Zeabur 端不需要額外設定 build command。
 
 目前沒有測試框架、linter、build 指令 —— 驗證靠手動操作。
 
