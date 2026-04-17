@@ -6,7 +6,11 @@ import { pool } from './db.js';
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
-  throw new Error('JWT_SECRET is not configured');
+  throw new Error(
+    'JWT_SECRET is not configured. ' +
+      'Local dev: set it in server/.env. ' +
+      'Zeabur: add JWT_SECRET in Service → Variables (any long random string).',
+  );
 }
 
 const TOKEN_TTL = '7d';

@@ -12,7 +12,12 @@ const { Pool, types } = pg;
 types.setTypeParser(1082, (value) => value);
 
 if (!process.env.DATABASE_URL) {
-  throw new Error('DATABASE_URL is not configured. Copy .env.example to .env');
+  throw new Error(
+    'DATABASE_URL is not configured. ' +
+      'Local dev: copy server/.env.example to server/.env. ' +
+      'Zeabur: add DATABASE_URL in Service → Variables (use the internal ' +
+      'connection string from your PostgreSQL service).',
+  );
 }
 
 const useSsl = process.env.DATABASE_SSL === 'true';
