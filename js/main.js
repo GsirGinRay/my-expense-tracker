@@ -264,56 +264,35 @@ function setupInstallPrompt() {
     });
   }
 
-  const helpDialog = document.getElementById('install-help');
-  const helpClose = document.getElementById('install-help-close');
-  if (helpClose && helpDialog) {
-    helpClose.addEventListener('click', () => helpDialog.close());
-  }
-
-  function showInstallHelp() {
-    if (!helpDialog) {
-      // Last resort if dialog markup is missing for some reason.
-      const msg = isIos
-        ? '請點 Safari 分享鈕 → 加入主畫面'
-        : '請從 Chrome 選單 ⋮ →「安裝應用程式」';
-      showToast(msg, 'info');
-      return;
-    }
-    // Highlight the relevant platform section
-    helpDialog.querySelectorAll('section[data-platform]').forEach((s) => {
-      const isMatch = isIos
-        ? s.dataset.platform === 'ios'
-        : s.dataset.platform === 'android';
-      s.style.order = isMatch ? '0' : '1';
-      s.style.opacity = isMatch ? '1' : '0.65';
-    });
-    if (typeof helpDialog.showModal === 'function') {
-      helpDialog.showModal();
-    } else {
-      helpDialog.setAttribute('open', '');
-    }
-  }
-
   const installBtnText = installBtn.querySelector('.install-btn-text');
   const originalText = installBtnText ? installBtnText.textContent : '';
 
   installBtn.addEventListener('click', async () => {
     installBtn.disabled = true;
     if (installBtnText) installBtnText.textContent = '準備中…';
+    console.info('[PWA] click; waiting up to 2500ms for beforeinstallprompt');
     try {
       const prompt = await awaitPrompt(2500);
       if (prompt) {
         try {
           prompt.prompt();
           const { outcome } = await prompt.userChoice;
+          console.info('[PWA] userChoice outcome:', outcome);
           deferredPrompt = null;
           window.__deferredInstallPrompt = null;
           if (outcome === 'accepted') return;
+          showToast('已取消安裝', 'info');
         } catch (err) {
-          console.warn('install prompt failed:', err);
+          console.warn('[PWA] prompt() failed:', err);
+          showToast('安裝失敗，請從 Chrome ⋮ 選單試試', 'error');
         }
+        return;
       }
-      showInstallHelp();
+      // Chrome refuses to fire the event — usually cooldown after a prior dismissal.
+      const msg = isIos
+        ? '請從 Safari 分享 → 加入主畫面'
+        : 'Chrome 暫時不允許直接安裝。請開 chrome://settings/siteData 清除本站資料後重試。';
+      showToast(msg, 'info');
     } finally {
       installBtn.disabled = false;
       if (installBtnText) installBtnText.textContent = originalText;
@@ -324,7 +303,6 @@ function setupInstallPrompt() {
     installBtn.hidden = true;
     deferredPrompt = null;
     window.__deferredInstallPrompt = null;
-    if (helpDialog && helpDialog.open) helpDialog.close();
     showToast('已安裝到主畫面 🎉', 'success');
   });
 }
