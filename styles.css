@@ -507,6 +507,12 @@ body {
   padding: 1.5rem;
 }
 
+/* `display: flex` above and similar layout values override the HTML
+   `hidden` attribute's default `display: none`, so re-assert it. */
+[hidden] {
+  display: none !important;
+}
+
 .auth-card {
   width: 100%;
   max-width: 380px;
