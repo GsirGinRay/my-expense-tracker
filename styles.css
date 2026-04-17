@@ -47,6 +47,23 @@ body {
   padding: calc(2rem + env(safe-area-inset-top)) 1rem 1rem;
 }
 
+.install-btn {
+  margin-top: 0.75rem;
+  padding: 0.6rem 1.2rem;
+  background: var(--primary);
+  color: #fff;
+  border: 0;
+  border-radius: 999px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: var(--shadow);
+}
+
+.install-btn:hover {
+  background: var(--primary-hover);
+}
+
 .app-header h1 {
   margin: 0;
   font-size: 1.75rem;

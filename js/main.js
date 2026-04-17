@@ -200,6 +200,47 @@ function registerServiceWorker() {
   });
 }
 
+function setupInstallPrompt() {
+  const installBtn = document.getElementById('install-btn');
+  if (!installBtn) return;
+
+  // Already running as installed PWA → no need to show button
+  const isStandalone =
+    window.matchMedia('(display-mode: standalone)').matches ||
+    window.navigator.standalone === true;
+  if (isStandalone) return;
+
+  let deferredPrompt = null;
+
+  // Android/desktop Chromium path
+  window.addEventListener('beforeinstallprompt', (event) => {
+    event.preventDefault();
+    deferredPrompt = event;
+    installBtn.hidden = false;
+  });
+
+  installBtn.addEventListener('click', async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      await deferredPrompt.userChoice;
+      deferredPrompt = null;
+      installBtn.hidden = true;
+      return;
+    }
+    // iOS Safari has no programmatic install — show guidance
+    showToast('請點瀏覽器分享鈕 → 加入主畫面', 'info');
+  });
+
+  window.addEventListener('appinstalled', () => {
+    installBtn.hidden = true;
+    showToast('已安裝到主畫面 🎉', 'success');
+  });
+
+  // iOS Safari fallback: show button so user gets guidance
+  const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  if (isIos) installBtn.hidden = false;
+}
+
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', init);
 } else {
@@ -207,3 +248,4 @@ if (document.readyState === 'loading') {
 }
 
 registerServiceWorker();
+setupInstallPrompt();
