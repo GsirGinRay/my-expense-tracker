@@ -210,99 +210,39 @@ function registerServiceWorker() {
 }
 
 function setupInstallPrompt() {
-  const installBtn = document.getElementById('install-btn');
-  if (!installBtn) return;
+  const btn = document.getElementById('install-btn');
+  const hint = document.getElementById('install-hint');
+  if (!btn) return;
+
+  const hideAll = () => {
+    btn.hidden = true;
+    if (hint) hint.hidden = true;
+  };
 
   const isStandalone =
     window.matchMedia('(display-mode: standalone)').matches ||
     window.navigator.standalone === true;
-  if (isStandalone) {
-    installBtn.hidden = true;
-    return;
-  }
+  if (isStandalone) return hideAll();
 
-  // The HTML head pre-attaches a beforeinstallprompt listener that stashes the
-  // event on window.__deferredInstallPrompt. Pick it up here in case it fired
-  // before this module ran.
-  let deferredPrompt = window.__deferredInstallPrompt || null;
-  const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  let prompt = window.__deferredInstallPrompt || null;
 
   window.addEventListener('beforeinstallprompt', (event) => {
     event.preventDefault();
-    deferredPrompt = event;
+    prompt = event;
     window.__deferredInstallPrompt = event;
-    console.info('[PWA] beforeinstallprompt captured');
   });
 
-  // Chrome fires beforeinstallprompt asynchronously after SW activation. If the
-  // user clicks the button before the event lands, give it a short grace period
-  // before falling back to manual instructions.
-  function awaitPrompt(timeoutMs) {
-    if (deferredPrompt) return Promise.resolve(deferredPrompt);
-    if (window.__deferredInstallPrompt) {
-      deferredPrompt = window.__deferredInstallPrompt;
-      return Promise.resolve(deferredPrompt);
-    }
-    return new Promise((resolve) => {
-      const onFire = (event) => {
-        event.preventDefault();
-        window.removeEventListener('beforeinstallprompt', onFire);
-        clearTimeout(timer);
-        deferredPrompt = event;
-        window.__deferredInstallPrompt = event;
-        resolve(event);
-      };
-      const timer = setTimeout(() => {
-        window.removeEventListener('beforeinstallprompt', onFire);
-        console.warn(
-          '[PWA] beforeinstallprompt 在 ' + timeoutMs +
-            'ms 內未觸發 — Chrome 可能在冷卻期，需到 chrome://settings/siteData 清除網站資料。',
-        );
-        resolve(null);
-      }, timeoutMs);
-      window.addEventListener('beforeinstallprompt', onFire);
-    });
-  }
-
-  const installBtnText = installBtn.querySelector('.install-btn-text');
-  const originalText = installBtnText ? installBtnText.textContent : '';
-
-  installBtn.addEventListener('click', async () => {
-    installBtn.disabled = true;
-    if (installBtnText) installBtnText.textContent = '準備中…';
-    console.info('[PWA] click; waiting up to 2500ms for beforeinstallprompt');
-    try {
-      const prompt = await awaitPrompt(2500);
-      if (prompt) {
-        try {
-          prompt.prompt();
-          const { outcome } = await prompt.userChoice;
-          console.info('[PWA] userChoice outcome:', outcome);
-          deferredPrompt = null;
-          window.__deferredInstallPrompt = null;
-          if (outcome === 'accepted') return;
-          showToast('已取消安裝', 'info');
-        } catch (err) {
-          console.warn('[PWA] prompt() failed:', err);
-          showToast('安裝失敗，請從 Chrome ⋮ 選單試試', 'error');
-        }
-        return;
-      }
-      // Chrome refuses to fire the event — usually cooldown after a prior dismissal.
-      const msg = isIos
-        ? '請從 Safari 分享 → 加入主畫面'
-        : 'Chrome 暫時不允許直接安裝。請開 chrome://settings/siteData 清除本站資料後重試。';
-      showToast(msg, 'info');
-    } finally {
-      installBtn.disabled = false;
-      if (installBtnText) installBtnText.textContent = originalText;
-    }
+  btn.addEventListener('click', async () => {
+    if (!prompt) return; // Cooldown — the hint below the button covers this case.
+    prompt.prompt();
+    const { outcome } = await prompt.userChoice;
+    prompt = null;
+    window.__deferredInstallPrompt = null;
+    if (outcome === 'accepted') hideAll();
   });
 
   window.addEventListener('appinstalled', () => {
-    installBtn.hidden = true;
-    deferredPrompt = null;
-    window.__deferredInstallPrompt = null;
+    hideAll();
     showToast('已安裝到主畫面 🎉', 'success');
   });
 }
