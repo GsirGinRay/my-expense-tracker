@@ -22,10 +22,24 @@ export function summarize(records, yearMonth) {
   const expense = monthly
     .filter((r) => r.type === 'expense')
     .reduce((sum, r) => sum + r.amount, 0);
+
+  // 投資紀錄已寫入 income/expense，所以 income/expense 統計值會包含投資。
+  // 這裡額外拆出投資分項，UI 用兩排顯示。
+  const investments = monthly.filter((r) => r.category === '投資' && r.stockName);
+  const investmentProfit = investments
+    .filter((r) => r.type === 'income')
+    .reduce((sum, r) => sum + r.amount, 0);
+  const investmentLoss = investments
+    .filter((r) => r.type === 'expense')
+    .reduce((sum, r) => sum + r.amount, 0);
+
   return {
     income,
     expense,
     balance: income - expense,
+    investmentProfit,
+    investmentLoss,
+    investmentNet: investmentProfit - investmentLoss,
   };
 }
 

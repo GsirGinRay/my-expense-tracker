@@ -179,6 +179,87 @@ body {
   color: var(--balance);
 }
 
+.investment-summary .summary-card.profit {
+  border-left-color: var(--income);
+}
+
+.investment-summary .summary-card.loss {
+  border-left-color: var(--expense);
+}
+
+.investment-summary .summary-card.net {
+  border-left-color: var(--balance);
+}
+
+.investment-summary .summary-card.profit .value {
+  color: var(--income);
+}
+
+.investment-summary .summary-card.loss .value {
+  color: var(--expense);
+}
+
+#summary-inv-net.negative {
+  color: var(--expense);
+}
+
+#summary-inv-net.positive {
+  color: var(--balance);
+}
+
+#investment-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding: 0.85rem;
+  margin-bottom: 0.85rem;
+  background: #f8fafc;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+}
+
+#investment-fields .field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+/* grid 子項預設 min-width:auto，input 會撐到瀏覽器預設寬度而溢出。
+   讓 .field 與 input 都允許縮小到 0 並完全填滿 cell。 */
+#investment-fields .field-row .field {
+  min-width: 0;
+}
+
+#investment-fields .field-row .field input {
+  width: 100%;
+  min-width: 0;
+}
+
+.pnl-preview {
+  display: block;
+  padding: 0.6rem 0.75rem;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 0.9rem;
+  color: var(--muted);
+  text-align: center;
+}
+
+.pnl-preview.positive {
+  color: var(--income);
+  background: var(--income-bg);
+  border-color: var(--income);
+  font-weight: 600;
+}
+
+.pnl-preview.negative {
+  color: var(--expense);
+  background: var(--expense-bg);
+  border-color: var(--expense);
+  font-weight: 600;
+}
+
 .content-grid {
   display: grid;
   grid-template-columns: 380px 1fr;

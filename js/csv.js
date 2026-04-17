@@ -6,20 +6,34 @@ function escapeCsv(value) {
   return str;
 }
 
-function typeLabel(type) {
-  return type === 'income' ? '收入' : '支出';
+function typeLabel(r) {
+  if (r.category === '投資' && r.stockName) return '投資';
+  return r.type === 'income' ? '收入' : '支出';
 }
 
+const LOT_SIZE = 1000;
+
 export function recordsToCsv(records) {
-  const header = ['日期', '類型', '類別', '商家', '金額', '備註'];
-  const rows = records.map((r) => [
-    r.date,
-    typeLabel(r.type),
-    r.category,
-    r.merchant ?? '',
-    r.amount,
-    r.note ?? '',
-  ]);
+  const header = [
+    '日期', '類型', '類別', '商家', '金額', '備註',
+    '股票名稱', '張數', '買進價', '賣出價', '折數',
+  ];
+  const rows = records.map((r) => {
+    const isInvestment = r.category === '投資' && r.stockName;
+    return [
+      r.date,
+      typeLabel(r),
+      r.category,
+      r.merchant ?? '',
+      r.amount,
+      r.note ?? '',
+      isInvestment ? r.stockName : '',
+      isInvestment && r.shares != null ? r.shares / LOT_SIZE : '',
+      isInvestment && r.buyPrice != null ? r.buyPrice : '',
+      isInvestment && r.sellPrice != null ? r.sellPrice : '',
+      isInvestment && r.feeDiscount != null ? r.feeDiscount : '',
+    ];
+  });
   const all = [header, ...rows];
   const BOM = '\uFEFF';
   return BOM + all.map((row) => row.map(escapeCsv).join(',')).join('\r\n');

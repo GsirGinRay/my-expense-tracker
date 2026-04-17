@@ -26,6 +26,8 @@ export function renderCategoryChart(canvas, records, yearMonth) {
   if (!ensureChartJs()) return;
 
   const expenseData = groupByCategory(records, yearMonth, 'expense');
+  // 投資虧損已計入 expense，但語意上不屬於日常支出分類，從圓餅圖排除避免污染。
+  delete expenseData['投資'];
   const labels = Object.keys(expenseData);
   const values = Object.values(expenseData);
 

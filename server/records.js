@@ -11,6 +11,13 @@ function badRequest(message) {
   return err;
 }
 
+// 把 camelCase 與 snake_case 都接住（前端送 camelCase、備份檔可能任一）。
+function pickInvestmentField(body, camel, snake) {
+  if (body[camel] !== undefined) return body[camel];
+  if (body[snake] !== undefined) return body[snake];
+  return undefined;
+}
+
 function validateInput(body, { partial = false } = {}) {
   const out = {};
 
@@ -50,8 +57,67 @@ function validateInput(body, { partial = false } = {}) {
     out.note = String(body.note ?? '').trim().slice(0, 200);
   }
 
+  // Investment fields — all nullable.
+  const stockNameRaw = pickInvestmentField(body, 'stockName', 'stock_name');
+  if (stockNameRaw !== undefined) {
+    if (stockNameRaw === null || String(stockNameRaw).trim() === '') {
+      out.stock_name = null;
+    } else {
+      out.stock_name = String(stockNameRaw).trim().slice(0, 30);
+    }
+  }
+
+  const shares = body.shares;
+  if (shares !== undefined) {
+    if (shares === null) {
+      out.shares = null;
+    } else {
+      const n = Number(shares);
+      if (!Number.isFinite(n) || n <= 0) throw badRequest('股數必須大於 0');
+      out.shares = n;
+    }
+  }
+
+  const buyPriceRaw = pickInvestmentField(body, 'buyPrice', 'buy_price');
+  if (buyPriceRaw !== undefined) {
+    if (buyPriceRaw === null) {
+      out.buy_price = null;
+    } else {
+      const n = Number(buyPriceRaw);
+      if (!Number.isFinite(n) || n <= 0) throw badRequest('買進價必須大於 0');
+      out.buy_price = n;
+    }
+  }
+
+  const sellPriceRaw = pickInvestmentField(body, 'sellPrice', 'sell_price');
+  if (sellPriceRaw !== undefined) {
+    if (sellPriceRaw === null) {
+      out.sell_price = null;
+    } else {
+      const n = Number(sellPriceRaw);
+      if (!Number.isFinite(n) || n <= 0) throw badRequest('賣出價必須大於 0');
+      out.sell_price = n;
+    }
+  }
+
+  const feeDiscountRaw = pickInvestmentField(body, 'feeDiscount', 'fee_discount');
+  if (feeDiscountRaw !== undefined) {
+    if (feeDiscountRaw === null) {
+      out.fee_discount = null;
+    } else {
+      const n = Number(feeDiscountRaw);
+      if (!Number.isFinite(n) || n < 0 || n > 1) {
+        throw badRequest('折數必須在 0 與 1 之間');
+      }
+      out.fee_discount = n;
+    }
+  }
+
   return out;
 }
+
+const SELECT_COLUMNS = `id, type, amount, category, merchant, date, note,
+       stock_name, shares, buy_price, sell_price, fee_discount, created_at`;
 
 function serialize(row) {
   return {
@@ -64,6 +130,11 @@ function serialize(row) {
       ? row.date.toISOString().slice(0, 10)
       : String(row.date).slice(0, 10),
     note: row.note || '',
+    stockName: row.stock_name ?? null,
+    shares: row.shares != null ? Number(row.shares) : null,
+    buyPrice: row.buy_price != null ? Number(row.buy_price) : null,
+    sellPrice: row.sell_price != null ? Number(row.sell_price) : null,
+    feeDiscount: row.fee_discount != null ? Number(row.fee_discount) : null,
     createdAt: row.created_at.toISOString(),
   };
 }
@@ -71,7 +142,7 @@ function serialize(row) {
 router.get('/', async (req, res, next) => {
   try {
     const { rows } = await pool.query(
-      `SELECT id, type, amount, category, merchant, date, note, created_at
+      `SELECT ${SELECT_COLUMNS}
          FROM records
         WHERE user_id = $1
         ORDER BY date DESC, created_at DESC`,
@@ -87,9 +158,11 @@ router.post('/', async (req, res, next) => {
   try {
     const data = validateInput(req.body);
     const { rows } = await pool.query(
-      `INSERT INTO records (user_id, type, amount, category, merchant, date, note)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
-       RETURNING id, type, amount, category, merchant, date, note, created_at`,
+      `INSERT INTO records
+         (user_id, type, amount, category, merchant, date, note,
+          stock_name, shares, buy_price, sell_price, fee_discount)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+       RETURNING ${SELECT_COLUMNS}`,
       [
         req.user.id,
         data.type,
@@ -98,6 +171,11 @@ router.post('/', async (req, res, next) => {
         data.merchant ?? '',
         data.date,
         data.note ?? '',
+        data.stock_name ?? null,
+        data.shares ?? null,
+        data.buy_price ?? null,
+        data.sell_price ?? null,
+        data.fee_discount ?? null,
       ],
     );
     res.status(201).json(serialize(rows[0]));
@@ -123,7 +201,7 @@ router.patch('/:id', async (req, res, next) => {
           SET ${sets.join(', ')}
         WHERE user_id = $${values.length - 1}
           AND id = $${values.length}
-        RETURNING id, type, amount, category, merchant, date, note, created_at`,
+        RETURNING ${SELECT_COLUMNS}`,
       values,
     );
     if (rows.length === 0) {
@@ -170,15 +248,22 @@ router.post('/restore', async (req, res, next) => {
 
     for (const r of normalized) {
       await client.query(
-        `INSERT INTO records (user_id, type, amount, category, merchant, date, note)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-        [req.user.id, r.type, r.amount, r.category, r.merchant ?? '', r.date, r.note ?? ''],
+        `INSERT INTO records
+           (user_id, type, amount, category, merchant, date, note,
+            stock_name, shares, buy_price, sell_price, fee_discount)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+        [
+          req.user.id, r.type, r.amount, r.category,
+          r.merchant ?? '', r.date, r.note ?? '',
+          r.stock_name ?? null, r.shares ?? null,
+          r.buy_price ?? null, r.sell_price ?? null, r.fee_discount ?? null,
+        ],
       );
     }
     await client.query('COMMIT');
 
     const { rows } = await client.query(
-      `SELECT id, type, amount, category, merchant, date, note, created_at
+      `SELECT ${SELECT_COLUMNS}
          FROM records
         WHERE user_id = $1
         ORDER BY date DESC, created_at DESC`,

@@ -21,3 +21,11 @@ CREATE TABLE IF NOT EXISTS records (
 
 CREATE INDEX IF NOT EXISTS idx_records_user_date
   ON records (user_id, date DESC, created_at DESC);
+
+-- 投資損益專用欄位（一般記帳留 NULL）。
+-- 用 category = '投資' AND stock_name IS NOT NULL 識別投資紀錄。
+ALTER TABLE records ADD COLUMN IF NOT EXISTS stock_name   TEXT;
+ALTER TABLE records ADD COLUMN IF NOT EXISTS shares       NUMERIC(14, 4);
+ALTER TABLE records ADD COLUMN IF NOT EXISTS buy_price    NUMERIC(14, 4);
+ALTER TABLE records ADD COLUMN IF NOT EXISTS sell_price   NUMERIC(14, 4);
+ALTER TABLE records ADD COLUMN IF NOT EXISTS fee_discount NUMERIC(5, 4);

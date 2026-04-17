@@ -75,7 +75,10 @@ npm start              # 或 npm run dev (使用 node --watch)
 { id: UUID, email: text, password_hash: text, created_at: timestamptz }
 // records (FK user_id ON DELETE CASCADE)
 { id: UUID, user_id: UUID, type: 'income'|'expense', amount: NUMERIC>0,
-  category: text, merchant: text, date: 'YYYY-MM-DD', note: text, created_at: timestamptz }
+  category: text, merchant: text, date: 'YYYY-MM-DD', note: text, created_at: timestamptz,
+  // 投資損益專用欄位（一般記帳全部 NULL）：
+  stock_name: text|null, shares: numeric|null, buy_price: numeric|null,
+  sell_price: numeric|null, fee_discount: numeric|null }
 ```
 
 **Render 流程**：任何狀態變動 → 呼叫 API → 後端寫 DB → 回傳新/更新的 record → 更新 `state.records` → 全量 `render()` 重繪摘要 + 清單 + 兩張圖。
@@ -95,6 +98,7 @@ npm start              # 或 npm run dev (使用 node --watch)
 - **Service Worker 排除 /api/**：`service-worker.js` 已在 fetch handler 開頭 return `/api/*`，新增任何後端路徑時要確認沒被誤快取。
 - **`[hidden]` CSS 強制 override**：`styles.css` 有 `[hidden] { display: none !important; }`，因為 `.auth-screen` 的 `display: flex` 會覆蓋 HTML `hidden` 屬性（造成登入後登入畫面不消失）。**不要移除這個規則**。
 - **DOM ID 是 main.js 與 index.html 的契約**：`main.js` 啟動時做一次性 `document.getElementById` 把所有需要的元素抓到 `el` 物件。改 `index.html` 的 ID 必須同步改 `main.js` 的 `el = { ... }`。
+- **投資紀錄是「UI mode 不是 DB type」**：表單 type radio 的 `'investment'` 只是前端切換投資專用欄位的旗標；DB `type` 仍只有 `'income' / 'expense'`，`category` 固定寫 `'投資'`。識別投資紀錄的條件是 `category === '投資' && stock_name IS NOT NULL`（前端 `js/ui.js` 與 `js/stats.js`、後端 SQL 都用這個判斷）。新增投資相關功能時務必同時更新 `js/investment.js`（純函式）、`js/ui.js`（顯示/編輯切換）、`js/stats.js`（摘要計算）、`server/records.js`（驗證/SQL）、`csv.js`（匯出欄位）。
 
 ## PWA 維護
 

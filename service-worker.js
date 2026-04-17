@@ -6,7 +6,7 @@
  * Bump CACHE_VERSION to force clients to refresh assets.
  */
 
-const CACHE_VERSION = 'v10';
+const CACHE_VERSION = 'v12';
 const CACHE_NAME = `accounting-shell-${CACHE_VERSION}`;
 
 const CHART_JS_URL =
@@ -22,6 +22,7 @@ const PRECACHE_URLS = [
   './js/auth.js',
   './js/records.js',
   './js/categories.js',
+  './js/investment.js',
   './js/stats.js',
   './js/csv.js',
   './js/ui.js',

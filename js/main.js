@@ -18,9 +18,13 @@ import {
   showToast,
   resetForm,
   fillFormForEdit,
+  syncFormMode,
+  formatMoney,
 } from './ui.js';
 import { renderCategoryChart, renderTrendChart } from './charts.js';
 import { exportCsv, exportBackup, parseBackup } from './csv.js';
+import { calculatePnL, DEFAULT_DISCOUNT } from './investment.js';
+import { INVESTMENT_CATEGORY } from './categories.js';
 
 const state = {
   records: [],
@@ -131,21 +135,102 @@ function handleLogout() {
 
 function handleTypeChange() {
   const type = el.form.querySelector('[name="type"]:checked').value;
+  syncFormMode(el.form);
+  if (type === 'investment') {
+    updatePnlPreview();
+    return;
+  }
   const categorySelect = el.form.querySelector('[name="category"]');
   renderCategoryOptions(categorySelect, type);
+}
+
+function readInvestmentInputs() {
+  const fd = new FormData(el.form);
+  return {
+    stockName: String(fd.get('stockName') ?? '').trim(),
+    lots: Number(fd.get('lots')),
+    buyPrice: Number(fd.get('buyPrice')),
+    sellPrice: Number(fd.get('sellPrice')),
+    feeDiscount: Number(fd.get('feeDiscount') ?? DEFAULT_DISCOUNT),
+  };
+}
+
+function updatePnlPreview() {
+  const preview = document.getElementById('pnl-preview');
+  if (!preview) return;
+  const { lots, buyPrice, sellPrice, feeDiscount } = readInvestmentInputs();
+  if (![lots, buyPrice, sellPrice].every((v) => Number.isFinite(v) && v > 0)) {
+    preview.textContent = '填入欄位後即時計算損益…';
+    preview.classList.remove('positive', 'negative');
+    return;
+  }
+  const result = calculatePnL({ lots, buyPrice, sellPrice, feeDiscount });
+  const sign = result.pnl >= 0 ? '+' : '-';
+  preview.textContent =
+    `預估損益：${sign}${formatMoney(result.amount).replace('-', '')}` +
+    ` ／ 手續費：${formatMoney(result.buyFee + result.sellFee)}` +
+    ` ／ 交易稅：${formatMoney(result.tax)}`;
+  preview.classList.toggle('positive', result.pnl >= 0);
+  preview.classList.toggle('negative', result.pnl < 0);
 }
 
 async function handleSubmit(event) {
   event.preventDefault();
   const formData = new FormData(el.form);
-  const input = {
-    type: formData.get('type'),
-    amount: Number(formData.get('amount')),
-    category: formData.get('category'),
-    merchant: (formData.get('merchant') ?? '').toString().trim(),
-    date: formData.get('date'),
-    note: (formData.get('note') ?? '').toString().trim(),
-  };
+  const formType = formData.get('type');
+  const date = formData.get('date');
+  const note = (formData.get('note') ?? '').toString().trim();
+
+  let input;
+  if (formType === 'investment') {
+    const { stockName, lots, buyPrice, sellPrice, feeDiscount } = readInvestmentInputs();
+    if (!stockName) {
+      showToast('請填股票名稱', 'error');
+      return;
+    }
+    if (![lots, buyPrice, sellPrice].every((v) => Number.isFinite(v) && v > 0)) {
+      showToast('請填正確的張數與買賣價格', 'error');
+      return;
+    }
+    if (!Number.isFinite(feeDiscount) || feeDiscount < 0 || feeDiscount > 1) {
+      showToast('折數需在 0 與 1 之間', 'error');
+      return;
+    }
+    const result = calculatePnL({ lots, buyPrice, sellPrice, feeDiscount });
+    if (result.amount <= 0) {
+      showToast('損益為 0，無需記帳', 'info');
+      return;
+    }
+    input = {
+      type: result.type,
+      amount: Number(result.amount.toFixed(2)),
+      category: INVESTMENT_CATEGORY,
+      merchant: stockName,
+      date,
+      note,
+      stockName,
+      shares: result.shares,
+      buyPrice,
+      sellPrice,
+      feeDiscount,
+    };
+  } else {
+    input = {
+      type: formType,
+      amount: Number(formData.get('amount')),
+      category: formData.get('category'),
+      merchant: (formData.get('merchant') ?? '').toString().trim(),
+      date,
+      note,
+      // 編輯時若從投資切回一般，需把投資欄位清掉。
+      stockName: null,
+      shares: null,
+      buyPrice: null,
+      sellPrice: null,
+      feeDiscount: null,
+    };
+  }
+
   const editingId = formData.get('recordId');
   const submitBtn = document.getElementById('submit-btn');
 
@@ -301,6 +386,11 @@ function bindEvents() {
   el.form
     .querySelectorAll('[name="type"]')
     .forEach((radio) => radio.addEventListener('change', handleTypeChange));
+
+  ['lots', 'buyPrice', 'sellPrice', 'feeDiscount'].forEach((name) => {
+    const input = el.form.querySelector(`[name="${name}"]`);
+    if (input) input.addEventListener('input', updatePnlPreview);
+  });
   el.listBody.addEventListener('click', handleListClick);
   el.monthSelect.addEventListener('change', handleMonthChange);
 
