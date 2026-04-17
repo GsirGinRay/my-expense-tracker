@@ -190,8 +190,20 @@ function init() {
   document.getElementById('cancel-edit-btn').addEventListener('click', handleCancelEdit);
 }
 
+function registerServiceWorker() {
+  if (!('serviceWorker' in navigator)) return;
+  if (location.protocol !== 'http:' && location.protocol !== 'https:') return;
+  window.addEventListener('load', () => {
+    navigator.serviceWorker
+      .register('./service-worker.js')
+      .catch((err) => console.warn('SW 註冊失敗：', err));
+  });
+}
+
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', init);
 } else {
   init();
 }
+
+registerServiceWorker();

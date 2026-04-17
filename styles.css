@@ -44,7 +44,7 @@ body {
 
 .app-header {
   text-align: center;
-  padding: 2rem 1rem 1rem;
+  padding: calc(2rem + env(safe-area-inset-top)) 1rem 1rem;
 }
 
 .app-header h1 {
@@ -438,7 +438,7 @@ body {
 
 .app-footer {
   text-align: center;
-  padding: 1.5rem 1rem 2rem;
+  padding: 1.5rem 1rem calc(2rem + env(safe-area-inset-bottom));
   color: var(--muted);
 }
 

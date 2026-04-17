@@ -1,0 +1,13 @@
+# Zeabur / Netlify-compatible response headers.
+# Goal: keep the service worker fresh so CACHE_VERSION bumps reach users,
+# while letting the precached assets stay cacheable.
+
+/service-worker.js
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/manifest.webmanifest
+  Content-Type: application/manifest+json; charset=utf-8
+  Cache-Control: public, max-age=3600
+
+/icons/*
+  Cache-Control: public, max-age=604800
