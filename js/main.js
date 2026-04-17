@@ -198,22 +198,32 @@ function registerServiceWorker() {
       .register('./service-worker.js')
       .catch((err) => console.warn('SW 註冊失敗：', err));
   });
+
+  // When a new SW takes over, reload once so the page runs the fresh assets
+  // it precached. Guard against loops.
+  let reloading = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (reloading) return;
+    reloading = true;
+    window.location.reload();
+  });
 }
 
 function setupInstallPrompt() {
   const installBtn = document.getElementById('install-btn');
   if (!installBtn) return;
 
-  // Already running as installed PWA → no need to show button
+  // Already running as installed PWA → hide the button.
   const isStandalone =
     window.matchMedia('(display-mode: standalone)').matches ||
     window.navigator.standalone === true;
-  if (isStandalone) return;
-
-  // Always show the button so the user has a single, predictable affordance.
-  // Chrome only fires `beforeinstallprompt` once and won't re-fire after
-  // dismissal — hiding the button in that case strands the user.
-  installBtn.hidden = false;
+  if (isStandalone) {
+    installBtn.hidden = true;
+    return;
+  }
+  // Otherwise the button stays visible (default in HTML). Chrome only fires
+  // `beforeinstallprompt` once and won't re-fire after dismissal — hiding the
+  // button in that case strands the user with no install affordance.
 
   let deferredPrompt = null;
   const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);

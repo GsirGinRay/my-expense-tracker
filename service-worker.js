@@ -1,12 +1,12 @@
 /* Service worker for 我的記帳 PWA.
  * Strategy:
  *   - Precache the app shell on install (HTML, CSS, JS modules, manifest, icons, Chart.js CDN).
- *   - Navigation requests: network-first, fall back to cached index.html (offline shell).
- *   - Same-origin static + the pinned Chart.js CDN URL: cache-first.
+ *   - HTML / JS / CSS / manifest: network-first (always pick up deploys), fall back to cache offline.
+ *   - Icons + pinned Chart.js CDN URL: cache-first (immutable, fine to serve stale).
  * Bump CACHE_VERSION to force clients to refresh assets.
  */
 
-const CACHE_VERSION = 'v3';
+const CACHE_VERSION = 'v4';
 const CACHE_NAME = `accounting-shell-${CACHE_VERSION}`;
 
 const CHART_JS_URL =
@@ -76,19 +76,20 @@ function isChartCdn(url) {
   return url.href === CHART_JS_URL;
 }
 
-async function networkFirstNavigation(request) {
+async function networkFirst(request, navigationFallback = false) {
+  const cache = await caches.open(CACHE_NAME);
   try {
     const fresh = await fetch(request);
-    const cache = await caches.open(CACHE_NAME);
-    cache.put('./index.html', fresh.clone()).catch(() => {});
+    if (fresh && fresh.ok) cache.put(request, fresh.clone()).catch(() => {});
     return fresh;
-  } catch {
-    const cache = await caches.open(CACHE_NAME);
-    return (
-      (await cache.match('./index.html')) ||
-      (await cache.match(request)) ||
-      Response.error()
-    );
+  } catch (err) {
+    const cached = await cache.match(request);
+    if (cached) return cached;
+    if (navigationFallback) {
+      const shell = await cache.match('/index.html');
+      if (shell) return shell;
+    }
+    throw err;
   }
 }
 
@@ -96,14 +97,20 @@ async function cacheFirst(request) {
   const cache = await caches.open(CACHE_NAME);
   const cached = await cache.match(request);
   if (cached) return cached;
-  try {
-    const fresh = await fetch(request);
-    if (fresh && fresh.ok) cache.put(request, fresh.clone()).catch(() => {});
-    return fresh;
-  } catch (err) {
-    if (cached) return cached;
-    throw err;
-  }
+  const fresh = await fetch(request);
+  if (fresh && fresh.ok) cache.put(request, fresh.clone()).catch(() => {});
+  return fresh;
+}
+
+function isAlwaysFresh(url, request) {
+  if (request.mode === 'navigate') return true;
+  const p = url.pathname;
+  return (
+    p.endsWith('.js') ||
+    p.endsWith('.css') ||
+    p.endsWith('.webmanifest') ||
+    p.endsWith('.html')
+  );
 }
 
 self.addEventListener('fetch', (event) => {
@@ -111,13 +118,14 @@ self.addEventListener('fetch', (event) => {
   if (request.method !== 'GET') return;
 
   const url = new URL(request.url);
+  const sameOrigin = url.origin === self.location.origin;
 
-  if (request.mode === 'navigate') {
-    event.respondWith(networkFirstNavigation(request));
+  if (sameOrigin && isAlwaysFresh(url, request)) {
+    event.respondWith(networkFirst(request, request.mode === 'navigate'));
     return;
   }
 
-  if (url.origin === self.location.origin || isChartCdn(url)) {
+  if (sameOrigin || isChartCdn(url)) {
     event.respondWith(cacheFirst(request));
   }
 });
