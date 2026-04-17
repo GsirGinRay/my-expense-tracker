@@ -231,7 +231,38 @@ function setupInstallPrompt() {
     event.preventDefault();
     deferredPrompt = event;
     window.__deferredInstallPrompt = event;
+    console.info('[PWA] beforeinstallprompt captured');
   });
+
+  // Chrome fires beforeinstallprompt asynchronously after SW activation. If the
+  // user clicks the button before the event lands, give it a short grace period
+  // before falling back to manual instructions.
+  function awaitPrompt(timeoutMs) {
+    if (deferredPrompt) return Promise.resolve(deferredPrompt);
+    if (window.__deferredInstallPrompt) {
+      deferredPrompt = window.__deferredInstallPrompt;
+      return Promise.resolve(deferredPrompt);
+    }
+    return new Promise((resolve) => {
+      const onFire = (event) => {
+        event.preventDefault();
+        window.removeEventListener('beforeinstallprompt', onFire);
+        clearTimeout(timer);
+        deferredPrompt = event;
+        window.__deferredInstallPrompt = event;
+        resolve(event);
+      };
+      const timer = setTimeout(() => {
+        window.removeEventListener('beforeinstallprompt', onFire);
+        console.warn(
+          '[PWA] beforeinstallprompt 在 ' + timeoutMs +
+            'ms 內未觸發 — Chrome 可能在冷卻期，需到 chrome://settings/siteData 清除網站資料。',
+        );
+        resolve(null);
+      }, timeoutMs);
+      window.addEventListener('beforeinstallprompt', onFire);
+    });
+  }
 
   const helpDialog = document.getElementById('install-help');
   const helpClose = document.getElementById('install-help-close');
@@ -263,20 +294,30 @@ function setupInstallPrompt() {
     }
   }
 
+  const installBtnText = installBtn.querySelector('.install-btn-text');
+  const originalText = installBtnText ? installBtnText.textContent : '';
+
   installBtn.addEventListener('click', async () => {
-    if (deferredPrompt) {
-      try {
-        deferredPrompt.prompt();
-        const { outcome } = await deferredPrompt.userChoice;
-        deferredPrompt = null;
-        window.__deferredInstallPrompt = null;
-        if (outcome === 'accepted') return;
-      } catch (err) {
-        console.warn('install prompt failed:', err);
+    installBtn.disabled = true;
+    if (installBtnText) installBtnText.textContent = '準備中…';
+    try {
+      const prompt = await awaitPrompt(2500);
+      if (prompt) {
+        try {
+          prompt.prompt();
+          const { outcome } = await prompt.userChoice;
+          deferredPrompt = null;
+          window.__deferredInstallPrompt = null;
+          if (outcome === 'accepted') return;
+        } catch (err) {
+          console.warn('install prompt failed:', err);
+        }
       }
-      // Dismissed or errored — still useful to surface manual instructions.
+      showInstallHelp();
+    } finally {
+      installBtn.disabled = false;
+      if (installBtnText) installBtnText.textContent = originalText;
     }
-    showInstallHelp();
   });
 
   window.addEventListener('appinstalled', () => {
