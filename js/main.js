@@ -210,35 +210,44 @@ function setupInstallPrompt() {
     window.navigator.standalone === true;
   if (isStandalone) return;
 
-  let deferredPrompt = null;
+  // Always show the button so the user has a single, predictable affordance.
+  // Chrome only fires `beforeinstallprompt` once and won't re-fire after
+  // dismissal — hiding the button in that case strands the user.
+  installBtn.hidden = false;
 
-  // Android/desktop Chromium path
+  let deferredPrompt = null;
+  const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
+
   window.addEventListener('beforeinstallprompt', (event) => {
     event.preventDefault();
     deferredPrompt = event;
-    installBtn.hidden = false;
   });
 
   installBtn.addEventListener('click', async () => {
     if (deferredPrompt) {
       deferredPrompt.prompt();
-      await deferredPrompt.userChoice;
+      const { outcome } = await deferredPrompt.userChoice;
+      // The deferred prompt can only be used once.
       deferredPrompt = null;
-      installBtn.hidden = true;
+      if (outcome === 'accepted') {
+        // `appinstalled` will fire next and hide the button.
+        return;
+      }
+      showToast('已取消。下次可從 Chrome 選單 ⋮ →「安裝應用程式」', 'info');
       return;
     }
-    // iOS Safari has no programmatic install — show guidance
-    showToast('請點瀏覽器分享鈕 → 加入主畫面', 'info');
+    if (isIos) {
+      showToast('請點瀏覽器分享鈕 → 加入主畫面', 'info');
+    } else {
+      showToast('請從 Chrome 選單 ⋮ →「安裝應用程式」', 'info');
+    }
   });
 
   window.addEventListener('appinstalled', () => {
     installBtn.hidden = true;
+    deferredPrompt = null;
     showToast('已安裝到主畫面 🎉', 'success');
   });
-
-  // iOS Safari fallback: show button so user gets guidance
-  const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
-  if (isIos) installBtn.hidden = false;
 }
 
 if (document.readyState === 'loading') {
