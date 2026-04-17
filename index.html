@@ -34,140 +34,171 @@
 <body>
   <div id="toast-container" aria-live="polite"></div>
 
-  <header class="app-header">
-    <h1>💰 我的記帳</h1>
-    <p class="subtitle">簡單、私密的個人記帳網站</p>
-    <button type="button" id="install-btn" class="install-btn">
-      <span aria-hidden="true">📲</span>
-      <span>安裝為 App</span>
-    </button>
-    <p id="install-hint" class="install-hint">
-      按鈕無反應時，從 Chrome 右上 ⋮ 選單 →「安裝應用程式」
-    </p>
-  </header>
+  <section id="auth-screen" class="auth-screen" hidden>
+    <div class="auth-card">
+      <h1 class="auth-title">💰 我的記帳</h1>
+      <p class="auth-subtitle">登入後將資料安全儲存在雲端</p>
 
-  <main class="container">
-    <section class="summary" aria-label="本月摘要">
-      <article class="summary-card income">
-        <span class="label">本月收入</span>
-        <span id="summary-income" class="value">$0</span>
-      </article>
-      <article class="summary-card expense">
-        <span class="label">本月支出</span>
-        <span id="summary-expense" class="value">$0</span>
-      </article>
-      <article class="summary-card balance">
-        <span class="label">本月結餘</span>
-        <span id="summary-balance" class="value">$0</span>
-      </article>
-    </section>
+      <div class="auth-tabs" role="tablist">
+        <button type="button" class="auth-tab active" data-mode="login" role="tab">登入</button>
+        <button type="button" class="auth-tab" data-mode="register" role="tab">註冊</button>
+      </div>
 
-    <section class="content-grid">
-      <div class="panel form-panel">
-        <h2 id="form-title">新增記帳</h2>
-        <form id="record-form" autocomplete="off">
-          <input type="hidden" name="recordId" value="" />
+      <form id="auth-form" autocomplete="on">
+        <label class="field">
+          <span>Email</span>
+          <input type="email" name="email" autocomplete="email" required placeholder="you@example.com" />
+        </label>
+        <label class="field">
+          <span>密碼</span>
+          <input type="password" name="password" autocomplete="current-password" required minlength="6" placeholder="至少 6 字元" />
+        </label>
+        <button type="submit" id="auth-submit" class="btn btn-primary auth-submit">登入</button>
+        <p id="auth-error" class="auth-error" hidden></p>
+      </form>
+    </div>
+  </section>
 
-          <fieldset class="type-toggle">
-            <legend class="visually-hidden">類型</legend>
-            <label class="radio-tab">
-              <input type="radio" name="type" value="expense" checked />
-              <span>支出</span>
+  <div id="app-root" hidden>
+    <header class="app-header">
+      <div id="user-bar" class="user-bar" hidden>
+        <span class="user-email" id="user-email"></span>
+        <button type="button" id="logout-btn" class="btn btn-ghost btn-small">登出</button>
+      </div>
+      <h1>💰 我的記帳</h1>
+      <p class="subtitle">簡單、私密的個人記帳網站</p>
+      <button type="button" id="install-btn" class="install-btn">
+        <span aria-hidden="true">📲</span>
+        <span>安裝為 App</span>
+      </button>
+      <p id="install-hint" class="install-hint">
+        按鈕無反應時，從 Chrome 右上 ⋮ 選單 →「安裝應用程式」
+      </p>
+    </header>
+
+    <main class="container">
+      <section class="summary" aria-label="本月摘要">
+        <article class="summary-card income">
+          <span class="label">本月收入</span>
+          <span id="summary-income" class="value">$0</span>
+        </article>
+        <article class="summary-card expense">
+          <span class="label">本月支出</span>
+          <span id="summary-expense" class="value">$0</span>
+        </article>
+        <article class="summary-card balance">
+          <span class="label">本月結餘</span>
+          <span id="summary-balance" class="value">$0</span>
+        </article>
+      </section>
+
+      <section class="content-grid">
+        <div class="panel form-panel">
+          <h2 id="form-title">新增記帳</h2>
+          <form id="record-form" autocomplete="off">
+            <input type="hidden" name="recordId" value="" />
+
+            <fieldset class="type-toggle">
+              <legend class="visually-hidden">類型</legend>
+              <label class="radio-tab">
+                <input type="radio" name="type" value="expense" checked />
+                <span>支出</span>
+              </label>
+              <label class="radio-tab">
+                <input type="radio" name="type" value="income" />
+                <span>收入</span>
+              </label>
+            </fieldset>
+
+            <label class="field">
+              <span>金額</span>
+              <input
+                type="number"
+                name="amount"
+                min="0.01"
+                step="0.01"
+                required
+                placeholder="0"
+                inputmode="decimal"
+              />
             </label>
-            <label class="radio-tab">
-              <input type="radio" name="type" value="income" />
-              <span>收入</span>
+
+            <label class="field">
+              <span>類別</span>
+              <select name="category" required></select>
             </label>
-          </fieldset>
 
-          <label class="field">
-            <span>金額</span>
-            <input
-              type="number"
-              name="amount"
-              min="0.01"
-              step="0.01"
-              required
-              placeholder="0"
-              inputmode="decimal"
-            />
-          </label>
+            <label class="field">
+              <span>商家 <small>(選填)</small></span>
+              <input type="text" name="merchant" maxlength="60" placeholder="星巴克、全聯…" />
+            </label>
 
-          <label class="field">
-            <span>類別</span>
-            <select name="category" required></select>
-          </label>
+            <label class="field">
+              <span>日期</span>
+              <input type="date" name="date" required />
+            </label>
 
-          <label class="field">
-            <span>商家 <small>(選填)</small></span>
-            <input type="text" name="merchant" maxlength="60" placeholder="星巴克、全聯…" />
-          </label>
+            <label class="field">
+              <span>備註 <small>(選填)</small></span>
+              <input type="text" name="note" maxlength="100" placeholder="午餐、加油…" />
+            </label>
 
-          <label class="field">
-            <span>日期</span>
-            <input type="date" name="date" required />
-          </label>
+            <div class="form-actions">
+              <button type="submit" id="submit-btn" class="btn btn-primary">新增</button>
+              <button type="button" id="cancel-edit-btn" class="btn btn-ghost" hidden>取消</button>
+            </div>
+          </form>
+        </div>
 
-          <label class="field">
-            <span>備註 <small>(選填)</small></span>
-            <input type="text" name="note" maxlength="100" placeholder="午餐、加油…" />
-          </label>
-
-          <div class="form-actions">
-            <button type="submit" id="submit-btn" class="btn btn-primary">新增</button>
-            <button type="button" id="cancel-edit-btn" class="btn btn-ghost" hidden>取消</button>
+        <div class="panel charts-panel">
+          <div class="chart-wrap">
+            <canvas id="category-chart"></canvas>
           </div>
-        </form>
-      </div>
-
-      <div class="panel charts-panel">
-        <div class="chart-wrap">
-          <canvas id="category-chart"></canvas>
+          <div class="chart-wrap">
+            <canvas id="trend-chart"></canvas>
+          </div>
         </div>
-        <div class="chart-wrap">
-          <canvas id="trend-chart"></canvas>
+      </section>
+
+      <section class="panel list-panel">
+        <div class="list-header">
+          <h2>記帳明細</h2>
+          <div class="toolbar">
+            <label class="inline-field">
+              <span>月份</span>
+              <select id="month-filter"></select>
+            </label>
+            <button type="button" id="export-csv-btn" class="btn btn-ghost">📄 匯出 CSV</button>
+            <button type="button" id="backup-btn" class="btn btn-ghost">💾 備份</button>
+            <label class="btn btn-ghost file-btn">
+              ♻️ 還原
+              <input type="file" id="restore-input" accept="application/json,.json" hidden />
+            </label>
+          </div>
         </div>
-      </div>
-    </section>
 
-    <section class="panel list-panel">
-      <div class="list-header">
-        <h2>記帳明細</h2>
-        <div class="toolbar">
-          <label class="inline-field">
-            <span>月份</span>
-            <select id="month-filter"></select>
-          </label>
-          <button type="button" id="export-csv-btn" class="btn btn-ghost">📄 匯出 CSV</button>
-          <button type="button" id="backup-btn" class="btn btn-ghost">💾 備份</button>
-          <label class="btn btn-ghost file-btn">
-            ♻️ 還原
-            <input type="file" id="restore-input" accept="application/json,.json" hidden />
-          </label>
+        <div class="table-wrap">
+          <table class="record-table">
+            <thead>
+              <tr>
+                <th>日期</th>
+                <th>類型</th>
+                <th>類別</th>
+                <th>商家</th>
+                <th class="align-right">金額</th>
+                <th>備註</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="record-list-body"></tbody>
+          </table>
         </div>
-      </div>
+      </section>
+    </main>
 
-      <div class="table-wrap">
-        <table class="record-table">
-          <thead>
-            <tr>
-              <th>日期</th>
-              <th>類型</th>
-              <th>類別</th>
-              <th>商家</th>
-              <th class="align-right">金額</th>
-              <th>備註</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody id="record-list-body"></tbody>
-        </table>
-      </div>
-    </section>
-  </main>
-
-  <footer class="app-footer">
-    <small>資料儲存於瀏覽器本機，不會上傳至任何伺服器。</small>
-  </footer>
+    <footer class="app-footer">
+      <small>資料儲存於雲端資料庫，僅本人帳號可存取。</small>
+    </footer>
+  </div>
 </body>
 </html>

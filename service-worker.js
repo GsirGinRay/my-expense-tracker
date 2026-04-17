@@ -6,7 +6,7 @@
  * Bump CACHE_VERSION to force clients to refresh assets.
  */
 
-const CACHE_VERSION = 'v8';
+const CACHE_VERSION = 'v9';
 const CACHE_NAME = `accounting-shell-${CACHE_VERSION}`;
 
 const CHART_JS_URL =
@@ -18,7 +18,8 @@ const PRECACHE_URLS = [
   './styles.css',
   './manifest.webmanifest',
   './js/main.js',
-  './js/storage.js',
+  './js/api.js',
+  './js/auth.js',
   './js/records.js',
   './js/categories.js',
   './js/stats.js',
@@ -119,6 +120,10 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(request.url);
   const sameOrigin = url.origin === self.location.origin;
+
+  // Never intercept API calls — they must always hit the network so auth +
+  // freshness work correctly, and so per-user data isn't cached cross-session.
+  if (sameOrigin && url.pathname.startsWith('/api/')) return;
 
   if (sameOrigin && isAlwaysFresh(url, request)) {
     event.respondWith(networkFirst(request, request.mode === 'navigate'));
